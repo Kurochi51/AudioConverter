@@ -1,0 +1,47 @@
+on:
+  workflow_dispatch:
+    inputs: {}
+  push:
+    tags:
+      - '*'
+
+name: Release
+
+jobs:
+  release:
+    name: Release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '7.x.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: |
+          dotnet build -c Release -p:DebugType=embedded
+
+      - name: Packing Release
+        run: |
+          pushd AudioConverter/bin/Release/net7.0-windows
+          7z a ../AudioConverter.zip *
+          popd
+        shell: bash
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1.12.0
+        with:
+          name: AudioConverter ${{ github.ref_name }}
+          artifacts: "./AudioConverter/bin/Release/*.zip"
+          tag: ${{ github.ref_name }}
+          omitBodyDuringUpdate: true
+          allowUpdates: true
+          replacesArtifacts: true
+          token: ${{ secrets.RELEASE }}
