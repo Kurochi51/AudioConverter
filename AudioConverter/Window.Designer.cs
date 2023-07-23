@@ -131,9 +131,9 @@
             // 
             convertButton.FlatAppearance.BorderSize = 0;
             convertButton.FlatStyle = FlatStyle.System;
-            convertButton.Location = new Point(190, 338);
+            convertButton.Location = new Point(167, 290);
             convertButton.Name = "convertButton";
-            convertButton.Size = new Size(84, 37);
+            convertButton.Size = new Size(90, 37);
             convertButton.TabIndex = 10;
             convertButton.Text = "Convert";
             convertButton.UseVisualStyleBackColor = true;
@@ -142,7 +142,7 @@
             // counterText
             // 
             counterText.AutoSize = true;
-            counterText.Location = new Point(208, 280);
+            counterText.Location = new Point(185, 232);
             counterText.Name = "counterText";
             counterText.Size = new Size(50, 20);
             counterText.TabIndex = 12;
@@ -153,7 +153,7 @@
             StyleIndicator.BackgroundImage = Properties.Resources.moon;
             StyleIndicator.BackgroundImageLayout = ImageLayout.Zoom;
             StyleIndicator.InitialImage = null;
-            StyleIndicator.Location = new Point(416, 327);
+            StyleIndicator.Location = new Point(394, 291);
             StyleIndicator.Name = "StyleIndicator";
             StyleIndicator.Size = new Size(48, 48);
             StyleIndicator.TabIndex = 13;
@@ -165,7 +165,7 @@
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(476, 387);
+            ClientSize = new Size(454, 351);
             Controls.Add(StyleIndicator);
             Controls.Add(counterText);
             Controls.Add(convertButton);
@@ -177,8 +177,9 @@
             Controls.Add(sourceButton);
             Controls.Add(sourceBox);
             Controls.Add(sourceLabel);
+            MaximizeBox = false;
             Name = "Window";
-            Text = "Yes";
+            Text = "Audio Converter";
             ((System.ComponentModel.ISupportInitialize)StyleIndicator).EndInit();
             ResumeLayout(false);
             PerformLayout();

@@ -2,14 +2,17 @@ using System.IO;
 using FFMpegCore;
 using FFMpegCore.Enums;
 using System.Text;
+using static System.Windows.Forms.DataFormats;
+using System.Windows.Forms;
 
 namespace AudioConverter
 {
     public partial class Window : Form
     {
         private int totalFiles, counter;
-        private readonly string[] allOptions = { "MP3", "WAV", "OGG" };
+        private readonly string[] allOptions = { "AAC", "AC3", "FLAC", "M4A", "M4B", "MP3", "OGG", "WAV" };
         private bool isDarkModeEnabled;
+        List<Task> conversionTasks = new List<Task>();
 
         public Window()
         {
@@ -68,8 +71,7 @@ namespace AudioConverter
             {
                 if (e.Data.GetDataPresent(DataFormats.FileDrop))
                 {
-                    string[]? files = e.Data.GetData(DataFormats.FileDrop) as string[];
-                    if (files != null && files.Length > 0)
+                    if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
                     {
                         string path = files[0];
                         if (sender == sourceBox)
@@ -183,25 +185,16 @@ namespace AudioConverter
             }
 
             // Find and convert audio files
-            Task.Run(() =>
+            Task.Run(async () =>
             {
-                if (File.Exists(directory)) // If the source is a single file
+                if (File.Exists(directory))
                 {
-                    string fileType = Path.GetExtension(directory);
-                    ConvertAudioFile(directory, output, fileType, outputType);
+                    await ConvertAllAudioFilesParallel(new string[] { directory }, outputType);
                 }
-                else if (Directory.Exists(directory)) // If the source is a directory
+                else if (Directory.Exists(directory))
                 {
                     string[] files = Directory.GetFiles(directory, "*", SearchOption.AllDirectories);
-                    foreach (var file in files)
-                    {
-                        if (IsAudioFile(file))
-                        {
-                            string fileType = Path.GetExtension(file);
-                            string outputFile = Path.Combine(output, file.Substring(directory.Length + 1));
-                            ConvertAudioFile(file, outputFile, fileType, outputType);
-                        }
-                    }
+                    await ConvertAllAudioFilesParallel(files, outputType);
                 }
                 MessageBox.Show("Conversion complete.", "Conversion Finished", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 Invoke(new Action(() =>
@@ -212,55 +205,86 @@ namespace AudioConverter
             });
         }
 
-        private void ConvertAudioFile(string inputFile, string outputFile, string inputFormat, string outputFormat)
+        private void ConvertAudioFile(string inputFile, string outputFile, string outputFormat)
         {
-            Codec? codec = null;
-            AudioQuality quality = AudioQuality.Low;
-            string outputExtension = string.Empty;
-
-            switch (outputFormat)
+            var formatMappings = new Dictionary<string, (Codec? codec, AudioQuality quality, string Extension)>
             {
-                case "MP3":
-                    codec = AudioCodec.LibMp3Lame;
-                    quality = AudioQuality.Good;
-                    outputExtension = ".mp3";
-                    break;
-                case "OGG":
-                    codec = AudioCodec.LibVorbis;
-                    quality = AudioQuality.Ultra;
-                    outputExtension = ".ogg";
-                    break;
-                case "WAV":
-                    outputExtension = ".wav";
-                    break;
+                ["AAC"] = (AudioCodec.Aac, AudioQuality.Good, ".aac"),
+                ["AC3"] = (null, AudioQuality.Low, ".ac3"),
+                ["FLAC"] = (null, AudioQuality.Low, ".flac"),
+                ["M4A"] = (AudioCodec.Aac, AudioQuality.Good, ".m4a"),
+                ["M4B"] = (AudioCodec.Aac, AudioQuality.Good, ".m4b"),
+                ["MP3"] = (AudioCodec.LibMp3Lame, AudioQuality.Good, ".mp3"),
+                ["OGG"] = (AudioCodec.LibVorbis, AudioQuality.Ultra, ".ogg"),
+                ["WAV"] = (null, AudioQuality.Low, ".wav")
+            };
+
+            if (!formatMappings.TryGetValue(outputFormat, out var format))
+            {
+                return;
             }
+            var codec = format.codec;
+            var quality = format.quality;
+            var outputExtension = format.Extension;
 
             outputFile = Path.ChangeExtension(outputFile, outputExtension);
 
             if (codec == null || quality == AudioQuality.Low)
             {
-                FFMpegArguments
-                    .FromFileInput(inputFile)
-                    .OutputToFile(outputFile, true)
-                    .ProcessSynchronously();
+                try
+                {
+                    FFMpegArguments
+                        .FromFileInput(inputFile)
+                        .OutputToFile(outputFile, true)
+                        .ProcessSynchronously(true);
+                    counter++;
+                    UpdateCounterText();
+                }
+                catch (Exception e)
+                {
+                    MessageBox.Show(e.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
             else
             {
-                FFMpegArguments
-                    .FromFileInput(inputFile)
-                    .OutputToFile(outputFile, true, options => options
-                        .WithAudioCodec(codec)
-                        .WithAudioBitrate(quality))
-                    .ProcessSynchronously();
+                try
+                {
+                    FFMpegArguments
+                        .FromFileInput(inputFile)
+                        .OutputToFile(outputFile, true, options => options
+                            .WithAudioCodec(codec)
+                            .WithAudioBitrate(quality))
+                        .ProcessSynchronously(true);
+                    counter++;
+                    UpdateCounterText();
+                }
+                catch (Exception e)
+                {
+                    MessageBox.Show(e.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
-            counter++;
-            UpdateCounterText();
         }
 
         private bool IsAudioFile(string filePath)
         {
+            bool found = false;
             string extension = Path.GetExtension(filePath).ToLower();
-            return extension == ".mp3" || extension == ".wav" || extension == ".ogg";
+            foreach (var type in allOptions)
+            {
+                if ($".{type.ToLower()}" == extension)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if (found)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
 
         private void UpdateCounterText()
@@ -337,6 +361,18 @@ namespace AudioConverter
                     }
                 }
             }
+        }
+
+        private async Task ConvertAllAudioFilesParallel(string[] inputFiles, string outputFormat)
+        {
+            var tasks = new List<Task>();
+            UpdateCounterText();
+            foreach (var inputFile in inputFiles)
+            {
+                string outputFile = Path.Combine(outputBox.Text.Trim(), Path.GetFileNameWithoutExtension(inputFile)) + $".{outputFormat.ToLower()}";
+                tasks.Add(Task.Run(() => ConvertAudioFile(inputFile, outputFile, outputFormat)));
+            }
+            await Task.WhenAll(tasks);
         }
 
         private void DarkModeToggle_Click(object sender, EventArgs e)
