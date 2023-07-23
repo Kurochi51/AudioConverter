@@ -2,8 +2,6 @@ using System.IO;
 using FFMpegCore;
 using FFMpegCore.Enums;
 using System.Text;
-using static System.Windows.Forms.DataFormats;
-using System.Windows.Forms;
 
 namespace AudioConverter
 {
@@ -12,7 +10,6 @@ namespace AudioConverter
         private int totalFiles, counter;
         private readonly string[] allOptions = { "AAC", "AC3", "FLAC", "M4A", "M4B", "MP3", "OGG", "WAV" };
         private bool isDarkModeEnabled;
-        List<Task> conversionTasks = new List<Task>();
 
         public Window()
         {
@@ -39,7 +36,7 @@ namespace AudioConverter
                 if (object.ReferenceEquals(sender, sourceButton))
                 {
                     sourceBox.Text = folderBrowserDialog.SelectedPath;
-                    if (!string.IsNullOrEmpty(sourceBox.Text))
+                    if (!string.IsNullOrWhiteSpace(sourceBox.Text))
                     {
                         totalFiles = Directory.EnumerateFiles(sourceBox.Text, "*", SearchOption.AllDirectories).Count();
                         counter = 0;
@@ -79,7 +76,7 @@ namespace AudioConverter
                             sourceBox.Text = path;
                             if (File.Exists(path))
                             {
-                                if (!string.IsNullOrEmpty(sourceBox.Text))
+                                if (!string.IsNullOrWhiteSpace(sourceBox.Text))
                                 {
                                     totalFiles = 1;
                                     counter = 0;
@@ -89,7 +86,7 @@ namespace AudioConverter
                             }
                             else if (Directory.Exists(path))
                             {
-                                if (!string.IsNullOrEmpty(sourceBox.Text))
+                                if (!string.IsNullOrWhiteSpace(sourceBox.Text))
                                 {
                                     totalFiles = Directory.EnumerateFiles(sourceBox.Text, "*", SearchOption.AllDirectories).Count();
                                     counter = 0;
@@ -110,7 +107,7 @@ namespace AudioConverter
             if (counter != 0)
             {
                 counter = 0;
-                if (!string.IsNullOrEmpty(sourceBox.Text))
+                if (!string.IsNullOrWhiteSpace(sourceBox.Text))
                 {
                     Invoke(new Action(() =>
                     {
@@ -129,15 +126,15 @@ namespace AudioConverter
 
 
             // Validate input
-            if (string.IsNullOrEmpty(directory) || !(Directory.Exists(directory) || File.Exists(directory)))
+            if (string.IsNullOrWhiteSpace(directory) || !(Directory.Exists(directory) || File.Exists(directory)))
             {
                 MessageBox.Show("Please enter a valid source path.", "Invalid Source", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            if (string.IsNullOrEmpty(output) || !Directory.Exists(output) || Directory.GetFiles(output).Length != 0)
+            if (string.IsNullOrWhiteSpace(output) || !Directory.Exists(output) || Directory.GetFiles(output).Length != 0)
             {
-                if (!string.IsNullOrEmpty(output) && Directory.GetFiles(output).Length != 0)
+                if (!string.IsNullOrWhiteSpace(output) && Directory.GetFiles(output).Length != 0)
                 {
                     DialogResult result = MessageBox.Show("Output folder isn't empty! Do you wish to continue?", "Invalid Output", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
                     if (result == DialogResult.Cancel || result == DialogResult.No)
@@ -267,24 +264,8 @@ namespace AudioConverter
 
         private bool IsAudioFile(string filePath)
         {
-            bool found = false;
-            string extension = Path.GetExtension(filePath).ToLower();
-            foreach (var type in allOptions)
-            {
-                if ($".{type.ToLower()}" == extension)
-                {
-                    found = true;
-                    break;
-                }
-            }
-            if (found)
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
+            string extension = Path.GetExtension(filePath).ToUpper().Replace(".","");
+            return extension != null && allOptions.Contains(extension);
         }
 
         private void UpdateCounterText()
